@@ -23,16 +23,15 @@ def verify():
         print(f"    Unique: {uqs}")
         print(f"    Indexes: {len(idxs)} indexes")
 
-    # Verify plain text passwords
-    con = sqlite3.connect("hrms.db")
-    cur = con.cursor()
-    cur.execute("SELECT id, login_id, email, password_hash, role FROM users")
-    users = cur.fetchall()
+    # Verify plain text passwords using SQLAlchemy session
+    from backend.app.core.database import SessionLocal
+    db = SessionLocal()
+    users = db.query(User).all()
     print("\n[2] User account security verification:")
-    for uid, login_id, email, pwd_hash, role in users:
-        is_bcrypt = pwd_hash.startswith("$2b$") or pwd_hash.startswith("$2a$")
-        print(f"  - User {uid}: {login_id} ({email}) | Role: {role} | Bcrypt Hashed: {is_bcrypt} | Hash len: {len(pwd_hash)}")
-    con.close()
+    for u in users:
+        is_bcrypt = u.password_hash.startswith("$2b$") or u.password_hash.startswith("$2a$")
+        print(f"  - User {u.id}: {u.login_id} ({u.email}) | Role: {u.role.value if hasattr(u.role, 'value') else u.role} | Bcrypt Hashed: {is_bcrypt} | Hash len: {len(u.password_hash)}")
+    db.close()
 
 if __name__ == "__main__":
     verify()

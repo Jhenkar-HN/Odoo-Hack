@@ -4,14 +4,22 @@ from sqlalchemy.orm import declarative_base, sessionmaker, Session
 from backend.app.core.config import settings
 
 # Engine configuration depending on DB type
-connect_args = {}
-if settings.DATABASE_URL.startswith("sqlite"):
-    connect_args = {"check_same_thread": False}
+engine_kwargs = {
+    "pool_pre_ping": True,
+}
+
+if settings.DATABASE_URL.startswith("mysql"):
+    engine_kwargs.update({
+        "pool_size": 10,
+        "max_overflow": 20,
+        "pool_recycle": 3600,
+    })
+elif settings.DATABASE_URL.startswith("sqlite"):
+    engine_kwargs["connect_args"] = {"check_same_thread": False}
 
 engine = create_engine(
     settings.DATABASE_URL,
-    connect_args=connect_args,
-    pool_pre_ping=True,
+    **engine_kwargs
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
