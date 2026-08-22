@@ -26,7 +26,7 @@ class ApiService {
         const data = contentType.includes('application/json') ? await response.json() : null;
 
         if (!response.ok) {
-            let message = 'Request failed.';
+            let message = data?.message || 'Request failed.';
             if (data?.detail) {
                 message = Array.isArray(data.detail)
                     ? data.detail.map(e => `${e.loc?.at(-1) || 'field'}: ${e.msg}`).join(', ')
