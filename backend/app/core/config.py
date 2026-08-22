@@ -11,8 +11,8 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 1 day
 
-    # Database
-    DATABASE_URL: str = "sqlite:///./hrms.db"
+    # Database (Default: MySQL)
+    DATABASE_URL: str = "mysql+pymysql://root:password@localhost:3306/hrms_db"
 
     # CORS
     CORS_ORIGINS: List[str] = [
