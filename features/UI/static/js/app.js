@@ -33,6 +33,10 @@ class HRMSApp {
             const rawUser = localStorage.getItem('hrms_user');
             if (rawUser) {
                 this.currentUser = JSON.parse(rawUser);
+                this.currentUser.role = String(this.currentUser.role || 'EMPLOYEE').toUpperCase();
+                this.currentUser.token = this.currentUser.access_token || this.currentUser.token || '';
+                this.currentUser.display_name = this.currentUser.display_name || this.currentUser.email || this.currentUser.login_id;
+                localStorage.setItem('hrms_user', JSON.stringify(this.currentUser));
             }
         } catch (e) {
             this.currentUser = null;
@@ -44,6 +48,12 @@ class HRMSApp {
     }
 
     setSession(user) {
+        user = {
+            ...user,
+            token: user.access_token,
+            display_name: user.display_name || user.email || user.login_id,
+            role: String(user.role || 'EMPLOYEE').toUpperCase(),
+        };
         this.currentUser = user;
         localStorage.setItem('hrms_user', JSON.stringify(user));
         
@@ -55,7 +65,7 @@ class HRMSApp {
         const mainWrapper = document.querySelector('.main-wrapper');
         if (mainWrapper && window.innerWidth > 1024) mainWrapper.style.marginLeft = 'var(--sidebar-width)';
 
-        if (user.role === 'hr') {
+        if (['ADMIN', 'HR_OFFICER'].includes(String(user.role).toUpperCase())) {
             this.navigate('dashboard');
         } else {
             this.navigate('profile', user.employee_id || 1);
@@ -100,7 +110,7 @@ class HRMSApp {
         }
 
         // Permission guard for Employee role
-        const isHR = this.currentUser.role === 'hr';
+        const isHR = ['ADMIN', 'HR_OFFICER'].includes(String(this.currentUser.role).toUpperCase());
         if (!isHR && (view === 'add-employee' || view === 'edit-employee')) {
             Toast.error('Access Denied', 'Only HR Administrators are authorized to create or edit employee records.');
             this.navigate('employees');
@@ -171,7 +181,7 @@ class HRMSApp {
         const container = document.getElementById('view-container');
         if (!container) return;
 
-        const isHR = this.currentUser?.role === 'hr';
+        const isHR = ['ADMIN', 'HR_OFFICER'].includes(String(this.currentUser?.role || '').toUpperCase());
 
         let depts = ["Engineering", "Design", "Human Resources", "Finance", "Marketing", "Sales", "Operations"];
         try {
@@ -268,7 +278,7 @@ class HRMSApp {
             this.state.totalEmployees = res.total || 0;
 
             if (this.state.employees.length === 0) {
-                const isHR = this.currentUser?.role === 'hr';
+                const isHR = ['ADMIN', 'HR_OFFICER'].includes(String(this.currentUser?.role || '').toUpperCase());
                 area.innerHTML = `
                     <div class="empty-state">
                         <div class="empty-state-icon">

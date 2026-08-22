@@ -7,7 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     PROJECT_NAME: str = "HRMS - Human Resource Management System"
     API_V1_STR: str = "/api/v1"
-    SECRET_KEY: str = "hrms-dev-jwt-secret-key-person1-super-secure-change-in-prod"
+    SECRET_KEY: str = "CHANGE-ME-IN-.ENV-USE-A-RANDOM-SECRET"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 1 day
 

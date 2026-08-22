@@ -1,18 +1,9 @@
-from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from backend.app.core.config import settings
-from backend.app.core.database import engine, Base
 from backend.app.core.exceptions import register_exception_handlers
 from backend.app.routes.api import api_router
 import backend.app.models  # Import all models to ensure metadata registration
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Initialize database tables
-    Base.metadata.create_all(bind=engine)
-    yield
 
 
 app = FastAPI(
@@ -32,7 +23,6 @@ app = FastAPI(
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
     docs_url="/docs",
     redoc_url="/redoc",
-    lifespan=lifespan,
 )
 
 # Configure CORS for frontend clients

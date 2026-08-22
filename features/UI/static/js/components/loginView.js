@@ -60,10 +60,10 @@ class LoginViewComponent {
                     <div style="margin-top:32px; padding-top:20px; border-top:1px dashed var(--border-subtle); text-align:center;">
                         <span style="font-size:11.5px; text-transform:uppercase; letter-spacing:0.06em; font-weight:700; color:var(--text-subtle);">Demo Quick Access</span>
                         <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px;">
-                            <button type="button" class="btn btn-secondary btn-sm" onclick="LoginViewComponent.quickFill('admin@hrms.com', 'admin123')" style="font-size:12px; padding:8px;">
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="LoginViewComponent.quickFill('admin@hrmscorp.com', 'Admin@123')" style="font-size:12px; padding:8px;">
                                 👑 HR Admin
                             </button>
-                            <button type="button" class="btn btn-secondary btn-sm" onclick="LoginViewComponent.quickFill('aarav.sharma@odooindia.com', 'employee123')" style="font-size:12px; padding:8px;">
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="LoginViewComponent.quickFill('john.doe@hrmscorp.com', 'Emp@123')" style="font-size:12px; padding:8px;">
                                 👤 Employee
                             </button>
                         </div>
@@ -114,7 +114,7 @@ class LoginViewComponent {
 
         try {
             const user = await ApiService.login(username, password);
-            Toast.success('Login Successful', `Welcome back, ${user.display_name}!`);
+            Toast.success('Login Successful', `Welcome back, ${user.email || user.login_id}!`);
             App.setSession(user);
         } catch (err) {
             Toast.error('Login Failed', err.message);

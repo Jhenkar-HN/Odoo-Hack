@@ -116,6 +116,10 @@ class EmployeeUpdate(BaseModel):
 class EmployeeRead(EmployeeBase):
     id: int
     employee_code: str
+    full_name: Optional[str] = None
+    work_email: Optional[EmailStr] = None
+    attendance_status: Optional[str] = None
+    salary_breakdown: Optional[dict] = None
     created_at: datetime
     updated_at: datetime
     model_config = ConfigDict(from_attributes=True)

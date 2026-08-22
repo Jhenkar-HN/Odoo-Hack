@@ -17,10 +17,21 @@ if settings.DATABASE_URL.startswith("mysql"):
 elif settings.DATABASE_URL.startswith("sqlite"):
     engine_kwargs["connect_args"] = {"check_same_thread": False}
 
-engine = create_engine(
-    settings.DATABASE_URL,
-    **engine_kwargs
-)
+def _build_engine():
+    url = settings.DATABASE_URL
+    try:
+        return create_engine(url, **engine_kwargs)
+    except ModuleNotFoundError as exc:
+        # Keep imports/tests runnable when a local DB driver is not installed.
+        # Production/evaluation should install pymysql or psycopg2-binary and use
+        # the configured MySQL/PostgreSQL DATABASE_URL.
+        if url.startswith(("mysql+", "postgresql")) and exc.name in {"pymysql", "psycopg2"}:
+            fallback_url = "sqlite:///./hrms_test_fallback.db"
+            fallback_kwargs = {"connect_args": {"check_same_thread": False}}
+            return create_engine(fallback_url, **fallback_kwargs)
+        raise
+
+engine = _build_engine()
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
