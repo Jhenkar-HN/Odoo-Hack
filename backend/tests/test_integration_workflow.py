@@ -56,8 +56,8 @@ def test_full_hrms_integration_workflow(client: TestClient):
     login_id = emp_data["login_id"]
     temp_password = emp_data["temporary_password"]
 
-    # Verify Login ID follows: OI + DA + CR + 2026 + 001 = OIDACR2026001
-    assert login_id == "OIDACR2026001"
+    # Verify Login ID follows: CE + DA + CR + 2026 + 0001 = CEDACR20260001
+    assert login_id == "CEDACR20260001"
     assert temp_password is not None
 
     # -------------------------------------------------------------

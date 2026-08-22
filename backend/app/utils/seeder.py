@@ -18,6 +18,7 @@ from backend.app.models import (
     LeaveBalance,
     TimeOffRequest,
     LeaveRequestStatus,
+    Company,
     CompanySettings,
 )
 from backend.app.repositories.leave_repo import leave_repo
@@ -26,6 +27,18 @@ from backend.app.repositories.leave_repo import leave_repo
 def seed_database(db: Session) -> None:
     """Seed initial data for demonstration and testing."""
     print("[*] Starting database seeding...")
+
+    # 0. Companies
+    default_companies = [
+        ("HRMS Corp", "CE"),
+        ("Apex Global Technologies", "AG"),
+    ]
+    for c_name, c_code in default_companies:
+        existing_comp = db.query(Company).filter(Company.code == c_code).first()
+        if not existing_comp:
+            comp = Company(name=c_name, code=c_code)
+            db.add(comp)
+    db.flush()
 
     # 1. Company Settings
     settings = db.query(CompanySettings).first()

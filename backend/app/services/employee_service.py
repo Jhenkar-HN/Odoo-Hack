@@ -156,11 +156,12 @@ class EmployeeService:
             )
             db.add(resume)
 
-        # 9. Generate Login ID: OI + 2 letters first + 2 letters last + year + seq
+        # 9. Generate Login ID: [CompanyCode][2-char first][2-char last][year][4-digit serial]
         login_id = IDGeneratorService.generate_login_id(
             db=db,
             first_name=db_employee.first_name,
             last_name=db_employee.last_name,
+            company=db_employee.company,
             date_of_joining=db_employee.date_of_joining,
         )
 
