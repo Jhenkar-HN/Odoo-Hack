@@ -111,3 +111,63 @@ def set_employee_salary(
         message="Salary structure configured successfully",
         data=sr,
     )
+
+
+@router.put("/employee/{employee_id}", response_model=ApiResponse[SalaryRead])
+def update_employee_salary(
+    employee_id: int,
+    salary_in: SalaryUpdate,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Full or partial update of employee salary structure (ADMIN only)."""
+    salary = salary_service.update_salary(db, employee_id, salary_in)
+
+    sr = SalaryRead.model_validate(salary)
+    sr.total_earnings = salary.total_earnings
+    sr.total_deductions = salary.total_deductions
+    sr.net_salary = salary.net_salary
+
+    return ApiResponse(
+        success=True,
+        message="Salary structure updated successfully",
+        data=sr,
+    )
+
+
+@router.patch("/employee/{employee_id}", response_model=ApiResponse[SalaryRead])
+def patch_employee_salary(
+    employee_id: int,
+    salary_in: SalaryUpdate,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Partial update of employee salary structure (ADMIN only)."""
+    salary = salary_service.update_salary(db, employee_id, salary_in)
+
+    sr = SalaryRead.model_validate(salary)
+    sr.total_earnings = salary.total_earnings
+    sr.total_deductions = salary.total_deductions
+    sr.net_salary = salary.net_salary
+
+    return ApiResponse(
+        success=True,
+        message="Salary structure updated successfully",
+        data=sr,
+    )
+
+
+@router.delete("/employee/{employee_id}", response_model=ApiResponse[bool])
+def delete_employee_salary(
+    employee_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Delete salary record for a specific employee (ADMIN only)."""
+    salary_service.delete_salary(db, employee_id)
+    return ApiResponse(
+        success=True,
+        message="Salary record deleted successfully",
+        data=True,
+    )
+

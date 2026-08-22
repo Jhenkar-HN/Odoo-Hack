@@ -1,3 +1,4 @@
+from datetime import date
 from decimal import Decimal
 from typing import Optional, List
 from sqlalchemy.orm import Session
@@ -35,10 +36,18 @@ class SalaryService:
             raise NotFoundException("Employee", employee_id)
 
         salary_data = salary_in.model_dump()
+
+        # Validate effective date range
+        eff_from = salary_data.get("effective_from") or date.today()
+        eff_to = salary_data.get("effective_to")
+        if eff_to and eff_from and eff_to < eff_from:
+            raise BusinessRuleException("Effective end date cannot be earlier than effective start date.")
+
         # Validate non-negative amounts
         for k, v in salary_data.items():
             if isinstance(v, (int, float, Decimal)) and v < 0:
                 raise BusinessRuleException(f"Salary field '{k}' cannot be negative.")
+
 
         # Compute gross earnings & total deductions
         gross_earnings = (
@@ -96,6 +105,13 @@ class SalaryService:
             raise NotFoundException("Salary record for employee", employee_id)
 
         update_data = salary_in.model_dump(exclude_unset=True)
+
+        # Validate effective date range if updated
+        eff_from = update_data.get("effective_from", existing_salary.effective_from)
+        eff_to = update_data.get("effective_to", existing_salary.effective_to)
+        if eff_to and eff_from and eff_to < eff_from:
+            raise BusinessRuleException("Effective end date cannot be earlier than effective start date.")
+
         # Validate non-negative amounts
         for k, v in update_data.items():
             if isinstance(v, (int, float, Decimal)) and v < 0:

@@ -460,3 +460,97 @@ def test_admin_deletes_salary(client: TestClient, admin_token: str, db_session: 
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert res_get.status_code == 404
+
+
+def test_salary_zero_values(client: TestClient, admin_token: str, db_session: Session):
+    """Edge Case: Zero salary values are accepted and calculate net salary correctly."""
+    emp = db_session.query(Employee).filter(Employee.email == "alice.smith@hrmscorp.com").first()
+
+    payload = {
+        "monthly_wage": "0.00",
+        "yearly_wage": "0.00",
+        "basic_salary": "0.00",
+        "hra": "0.00",
+        "standard_allowance": "0.00",
+        "performance_bonus": "0.00",
+        "leave_travel_allowance": "0.00",
+        "fixed_allowance": "0.00",
+        "professional_tax": "0.00",
+        "employee_pf": "0.00",
+        "employer_pf": "0.00",
+    }
+    res = client.post(
+        f"/api/v1/salaries/employee/{emp.id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json=payload,
+    )
+    assert res.status_code == 201
+    data = res.json()["data"]
+    assert float(data["total_earnings"]) == 0.00
+    assert float(data["total_deductions"]) == 0.00
+    assert float(data["net_salary"]) == 0.00
+
+
+def test_salary_decimal_precision_and_large_values(client: TestClient, admin_token: str, db_session: Session):
+    """Edge Case: Decimal cent values (e.g. 10000.50) and large valid salary amounts."""
+    emp = db_session.query(Employee).filter(Employee.email == "alice.smith@hrmscorp.com").first()
+
+    payload = {
+        "monthly_wage": "100000.50",
+        "yearly_wage": "1200006.00",
+        "basic_salary": "50000.25",
+        "hra": "25000.25",
+        "standard_allowance": "10000.00",
+        "performance_bonus": "5000.00",
+        "leave_travel_allowance": "5000.00",
+        "fixed_allowance": "5000.00",
+        "professional_tax": "200.00",
+        "employee_pf": "6000.00",
+        "employer_pf": "6000.00",
+    }
+    res = client.post(
+        f"/api/v1/salaries/employee/{emp.id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json=payload,
+    )
+    assert res.status_code == 201
+    data = res.json()["data"]
+    assert float(data["total_earnings"]) == 100000.50
+    assert float(data["total_deductions"]) == 6200.00
+    assert float(data["net_salary"]) == 93800.50
+
+
+def test_effective_to_before_effective_from_rejected(client: TestClient, admin_token: str, db_session: Session):
+    """Edge Case: effective_to before effective_from must be rejected."""
+    emp = db_session.query(Employee).filter(Employee.email == "alice.smith@hrmscorp.com").first()
+
+    payload = {
+        "monthly_wage": "5000.00",
+        "basic_salary": "2500.00",
+        "effective_from": "2026-06-01",
+        "effective_to": "2026-05-01",
+    }
+    res = client.post(
+        f"/api/v1/salaries/employee/{emp.id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json=payload,
+    )
+    assert res.status_code == 400
+    assert res.json()["success"] is False
+    assert "earlier than" in res.json()["message"]
+
+
+def test_delete_nonexistent_salary(client: TestClient, admin_token: str, db_session: Session):
+    """Edge Case: Deleting a nonexistent salary returns 404."""
+    # First delete alice's salary
+    emp = db_session.query(Employee).filter(Employee.email == "alice.smith@hrmscorp.com").first()
+    client.delete(f"/api/v1/salaries/employee/{emp.id}", headers={"Authorization": f"Bearer {admin_token}"})
+
+    # Second delete on same employee salary should return 404
+    res = client.delete(
+        f"/api/v1/salaries/employee/{emp.id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert res.status_code == 404
+    assert res.json()["success"] is False
+
