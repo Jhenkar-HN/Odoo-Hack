@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Enterprise Human Resource Management System (HRMS) - Employee Directory, Profiles, Automated Salary Structure, and Real-Time Attendance.">
+    <title>HRMS | Human Resource Management System</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="/static/css/variables.css">
+    <link rel="stylesheet" href="/static/css/base.css">
+    <link rel="stylesheet" href="/static/css/components.css">
+    <link rel="stylesheet" href="/static/css/dashboard.css">
+    <link rel="stylesheet" href="/static/css/profile.css">
+    <link rel="stylesheet" href="/static/css/animations.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Collapsible Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <!-- Rendered by SidebarComponent -->
+        </aside>
+
+        <!-- Main Workspace Area -->
+        <div class="main-wrapper">
+            <!-- Sticky Top Header -->
+            <header class="top-header" id="top-header">
+                <!-- Rendered by HeaderComponent -->
+            </header>
+
+            <!-- Dynamic Viewport Area -->
+            <main class="page-content" id="view-container">
+                <!-- Swapped dynamically: Dashboard, Employee Directory, Form, Profile -->
+            </main>
+        </div>
+    </div>
+
+    <!-- Generic Modal Container Overlay -->
+    <div class="modal-overlay" id="generic-modal-overlay"></div>
+
+    <!-- Toast Notifications Host -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- Application Script Modules -->
+    <script src="/static/js/api.js"></script>
+    <script src="/static/js/toast.js"></script>
+    <script src="/static/js/validation.js"></script>
+    <script src="/static/js/components/loginView.js"></script>
+    <script src="/static/js/components/leaveModal.js"></script>
+    <script src="/static/js/components/header.js"></script>
+    <script src="/static/js/components/sidebar.js"></script>
+    <script src="/static/js/components/statsView.js"></script>
+    <script src="/static/js/components/employeeCard.js"></script>
+    <script src="/static/js/components/employeeTable.js"></script>
+    <script src="/static/js/components/employeeForm.js"></script>
+    <script src="/static/js/components/employeeProfile.js"></script>
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
