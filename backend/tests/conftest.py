@@ -9,14 +9,23 @@ from backend.app.main import app
 from backend.app.core.database import Base, get_db
 from backend.app.utils.seeder import seed_database
 
-# Create in-memory SQLite database for deterministic, isolated tests
-SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
+import os
 
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL,
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-)
+# Dynamic test database URL (supports MySQL test instance or isolated in-memory)
+TEST_DB_URL = os.getenv("TEST_DATABASE_URL", "sqlite:///:memory:")
+
+test_engine_kwargs = {}
+if TEST_DB_URL.startswith("sqlite"):
+    test_engine_kwargs = {
+        "connect_args": {"check_same_thread": False},
+        "poolclass": StaticPool,
+    }
+else:
+    test_engine_kwargs = {
+        "pool_pre_ping": True,
+    }
+
+engine = create_engine(TEST_DB_URL, **test_engine_kwargs)
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 

@@ -1,4 +1,5 @@
 from typing import Optional, List
+from datetime import date
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 from backend.app.core.database import get_db
@@ -10,6 +11,8 @@ from backend.app.dependencies.rbac import (
     verify_employee_access,
 )
 from backend.app.models.user import User, UserRole
+from backend.app.models.employee import Employee
+from backend.app.models.attendance import Attendance
 from backend.app.repositories.employee_repo import employee_repo
 from backend.app.services.employee_service import employee_service
 from backend.app.schemas.employee import (
@@ -58,6 +61,15 @@ def list_employees(
     )
 
 
+@router.get("/departments", response_model=ApiResponse[List[str]])
+def list_departments(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    rows = db.query(Employee.department).distinct().order_by(Employee.department.asc()).all()
+    return ApiResponse(success=True, message="Departments retrieved", data=[r[0] for r in rows if r[0]])
+
+
 @router.post("", response_model=ApiResponse[dict], status_code=status.HTTP_201_CREATED)
 def create_employee(
     employee_in: EmployeeCreate,
@@ -102,8 +114,41 @@ def get_employee(
         if emp.private_info:
             pinfo = EmployeePrivateInfoRead.model_validate(emp.private_info)
 
+    employee_data = EmployeeRead.model_validate(emp).model_dump()
+    employee_data["full_name"] = emp.full_name
+    employee_data["work_email"] = emp.email
+
+    today_attendance = db.query(Attendance).filter(
+        Attendance.employee_id == id,
+        Attendance.attendance_date == date.today(),
+    ).first()
+    employee_data["attendance_status"] = (
+        today_attendance.status.value.lower() if today_attendance else "absent"
+    )
+
+    # Salary data is confidential: expose it only to HR/Admin or the employee themself.
+    if current_user.role in (UserRole.ADMIN, UserRole.HR_OFFICER) or current_user.employee_id == id:
+        salary = sorted(emp.salaries, key=lambda x: x.effective_from or date.min, reverse=True)
+        if salary:
+            latest = salary[0]
+            employee_data["salary_breakdown"] = {
+                "monthly_wage": float(latest.monthly_wage or 0),
+                "yearly_wage": float(latest.yearly_wage or 0),
+                "basic_salary": float(latest.basic_salary or 0),
+                "hra": float(latest.hra or 0),
+                "standard_allowance": float(latest.standard_allowance or 0),
+                "performance_bonus": float(latest.performance_bonus or 0),
+                "lta": float(latest.leave_travel_allowance or 0),
+                "fixed_allowance": float(latest.fixed_allowance or 0),
+                "pf_deduction": float(latest.employee_pf or 0),
+                "professional_tax": float(latest.professional_tax or 0),
+                "total_deductions": float(latest.total_deductions or 0),
+                "net_monthly": float(latest.net_salary or 0),
+                "net_yearly": float((latest.net_salary or 0) * 12),
+            }
+
     detail = EmployeeDetailRead(
-        **EmployeeRead.model_validate(emp).model_dump(),
+        **employee_data,
         skills=skills,
         certifications=certs,
         private_info=pinfo,

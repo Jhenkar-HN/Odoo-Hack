@@ -9,7 +9,7 @@ class SidebarComponent {
         const user = App.currentUser;
         if (!user) return;
 
-        const isHR = user.role === 'hr';
+        const isHR = ['ADMIN', 'HR_OFFICER'].includes(String(user.role || '').toUpperCase());
         const roleLabel = isHR ? '👑 HR Admin' : '👤 Employee';
         const avatar = user.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150';
 
