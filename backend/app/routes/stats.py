@@ -13,7 +13,7 @@ router = APIRouter(prefix="/stats", tags=["Dashboard Analytics"])
 @router.get("/dashboard", response_model=ApiResponse[dict])
 def get_dashboard_stats(db: Session = Depends(get_db)):
     """Retrieve summarized analytics KPIs for dashboard cards, attendance charts, and departments."""
-    total_employees = db.query(Employee).filter(Employee.is_active == True).count()
+    total_employees = db.query(Employee).count()
     today = date.today()
     
     present_today = db.query(Attendance).filter(
@@ -30,7 +30,7 @@ def get_dashboard_stats(db: Session = Depends(get_db)):
     absent_today = max(0, total_employees - present_today - on_leave_today)
 
     # Department breakdown
-    depts = db.query(Employee.department).filter(Employee.is_active == True).all()
+    depts = db.query(Employee.department).all()
     dept_counts = {}
     for (d,) in depts:
         if d:
