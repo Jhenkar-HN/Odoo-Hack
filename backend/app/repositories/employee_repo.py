@@ -100,7 +100,16 @@ class EmployeeRepository(BaseRepository[Employee]):
 
     # Certifications
     def add_certification(self, db: Session, employee_id: int, cert_data: dict) -> Certification:
-        cert = Certification(employee_id=employee_id, **cert_data)
+        clean_data = {}
+        if "name" in cert_data or "title" in cert_data:
+            clean_data["name"] = cert_data.get("name") or cert_data.get("title")
+        if "issuing_organization" in cert_data or "issuer" in cert_data:
+            clean_data["issuing_organization"] = cert_data.get("issuing_organization") or cert_data.get("issuer") or "Organization"
+        for col in ["issue_date", "expiry_date"]:
+            if col in cert_data and cert_data[col] is not None:
+                clean_data[col] = cert_data[col]
+
+        cert = Certification(employee_id=employee_id, **clean_data)
         db.add(cert)
         db.commit()
         db.refresh(cert)

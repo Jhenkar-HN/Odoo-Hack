@@ -82,11 +82,16 @@ def create_employee(
     """
     emp, user_acc, temp_password = employee_service.create_employee(db, employee_in)
 
+    emp_read = EmployeeRead.model_validate(emp).model_dump()
+
     return ApiResponse(
         success=True,
         message="Employee and user account created successfully",
         data={
+            **emp_read,
             "employee": EmployeeRead.model_validate(emp),
+            "id": emp.id,
+            "full_name": emp.full_name,
             "user_id": user_acc.id,
             "login_id": user_acc.login_id,
             "temporary_password": temp_password,

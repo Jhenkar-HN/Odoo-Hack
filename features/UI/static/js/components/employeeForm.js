@@ -546,12 +546,20 @@ class EmployeeFormComponent {
         try {
             if (editId) {
                 const res = await ApiService.updateEmployee(editId, payload);
-                Toast.success('Employee Updated', `${res.full_name}'s profile was updated successfully.`);
+                const fullName = res?.full_name || res?.employee?.full_name || 'Employee';
+                Toast.success('Employee Updated', `${fullName}'s profile was updated successfully.`);
                 App.navigate('profile', editId);
             } else {
                 const res = await ApiService.createEmployee(payload);
-                Toast.success('Employee Onboarded', `${res.full_name} was created with Login ID: ${res.login_id}`);
-                App.navigate('profile', res.id);
+                const empId = res?.id || res?.employee?.id;
+                const fullName = res?.full_name || res?.employee?.full_name || `${payload.first_name} ${payload.last_name}`;
+                const loginId = res?.login_id || res?.employee?.user_login_id || '';
+                Toast.success('Employee Onboarded', `${fullName} was created with Login ID: ${loginId}`);
+                if (empId) {
+                    App.navigate('profile', empId);
+                } else {
+                    App.navigate('employees');
+                }
             }
         } catch (err) {
             Toast.error('Submission Failed', err.message);
