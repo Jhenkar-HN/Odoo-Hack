@@ -27,7 +27,9 @@ class ApiService {
 
         if (!response.ok) {
             let message = data?.message || 'Request failed.';
-            if (data?.detail) {
+            if (data?.details && Array.isArray(data.details)) {
+                message = data.details.map(e => `${e.field ? e.field.replace(/^body\s*->\s*/, '') : 'Field'}: ${e.issue || e.msg || 'Invalid'}`).join(', ');
+            } else if (data?.detail) {
                 message = Array.isArray(data.detail)
                     ? data.detail.map(e => `${e.loc?.at(-1) || 'field'}: ${e.msg}`).join(', ')
                     : data.detail;
@@ -92,7 +94,7 @@ class ApiService {
     static async reviewLeave(id, status, rejection_reason = null) {
         return this.request(`/time-off/requests/${id}/review`, {
             method: 'PUT',
-            body: { status, rejection_reason }
+            body: { status: String(status).toUpperCase(), rejection_reason }
         });
     }
 

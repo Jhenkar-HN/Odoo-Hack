@@ -9,6 +9,8 @@ class LeaveModalComponent {
         const user = App.currentUser;
         if (!user) return;
 
+        const today = new Date().toISOString().split('T')[0];
+
         modal.innerHTML = `
             <div class="modal-dialog modal-lg">
                 <div class="modal-header">
@@ -31,27 +33,25 @@ class LeaveModalComponent {
                         <form id="leave-apply-form" onsubmit="LeaveModalComponent.submitLeave(event)">
                             <div class="form-row">
                                 <div class="form-group">
-                                    <label class="form-label required" for="leave_type">Leave Type</label>
-                                    <select id="leave_type" class="form-control" required>
-                                        <option value="Paid Time Off">Paid Time Off (Annual Leave)</option>
-                                        <option value="Sick Leave">Sick Leave</option>
-                                        <option value="Unpaid Leave">Unpaid Leave</option>
+                                    <label class="form-label required" for="leave_type_id">Leave Type</label>
+                                    <select id="leave_type_id" class="form-control" required>
+                                        <option value="">Loading leave types...</option>
                                     </select>
                                 </div>
                                 <div class="form-group">
                                     <label class="form-label required" for="days_count">Number of Days</label>
-                                    <input type="number" id="days_count" class="form-control" value="1" min="0.5" step="0.5" required>
+                                    <input type="number" id="days_count" class="form-control" value="1" min="0.5" step="0.5" readonly style="background:var(--bg-glass-input, rgba(255,255,255,0.05)); cursor:default;">
                                 </div>
                             </div>
 
                             <div class="form-row">
                                 <div class="form-group">
                                     <label class="form-label required" for="start_date">Start Date</label>
-                                    <input type="date" id="start_date" class="form-control" value="${new Date().toISOString().split('T')[0]}" required>
+                                    <input type="date" id="start_date" class="form-control" value="${today}" onchange="LeaveModalComponent.updateDaysCount()" required>
                                 </div>
                                 <div class="form-group">
                                     <label class="form-label required" for="end_date">End Date</label>
-                                    <input type="date" id="end_date" class="form-control" value="${new Date().toISOString().split('T')[0]}" required>
+                                    <input type="date" id="end_date" class="form-control" value="${today}" onchange="LeaveModalComponent.updateDaysCount()" required>
                                 </div>
                             </div>
 
@@ -80,18 +80,64 @@ class LeaveModalComponent {
         `;
 
         modal.classList.add('active');
+        await this.populateLeaveTypes();
+        this.updateDaysCount();
         await this.loadMyLeaves();
+    }
+
+    static async populateLeaveTypes() {
+        const select = document.getElementById('leave_type_id');
+        if (!select) return;
+
+        try {
+            const types = await ApiService.getLeaveTypes();
+            if (types && types.length > 0) {
+                select.innerHTML = types.map(t => `<option value="${t.id}">${t.name} (${t.default_allocation} days/year)</option>`).join('');
+            } else {
+                select.innerHTML = `
+                    <option value="1">Paid Time Off (PTO)</option>
+                    <option value="2">Sick Leave</option>
+                    <option value="3">Casual Leave</option>
+                    <option value="4">Unpaid Leave</option>
+                `;
+            }
+        } catch (e) {
+            select.innerHTML = `
+                <option value="1">Paid Time Off (PTO)</option>
+                <option value="2">Sick Leave</option>
+                <option value="3">Casual Leave</option>
+                <option value="4">Unpaid Leave</option>
+            `;
+        }
+    }
+
+    static updateDaysCount() {
+        const startInput = document.getElementById('start_date');
+        const endInput = document.getElementById('end_date');
+        const daysInput = document.getElementById('days_count');
+
+        if (!startInput || !endInput || !daysInput) return;
+
+        const start = new Date(startInput.value);
+        const end = new Date(endInput.value);
+
+        if (startInput.value && endInput.value && !isNaN(start.getTime()) && !isNaN(end.getTime())) {
+            if (end >= start) {
+                const diffTime = Math.abs(end - start);
+                const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24)) + 1;
+                daysInput.value = diffDays;
+            } else {
+                daysInput.value = 1;
+            }
+        }
     }
 
     static async loadMyLeaves() {
         const historyContainer = document.getElementById('leave-history-content');
         if (!historyContainer) return;
 
-        const user = App.currentUser;
-        const empId = user?.employee_id || 1;
-
         try {
-            const leaves = await ApiService.getMyLeaves(empId);
+            const leaves = await ApiService.getMyLeaves();
             if (!leaves || leaves.length === 0) {
                 historyContainer.innerHTML = `
                     <div class="empty-state" style="padding:24px;">
@@ -103,16 +149,20 @@ class LeaveModalComponent {
             }
 
             let rows = leaves.map(l => {
-                const statusBadge = l.status === 'approved' ? 
+                const statusStr = String(l.status || 'PENDING').toUpperCase();
+                const statusBadge = statusStr === 'APPROVED' ? 
                     `<span class="badge badge-present">Approved</span>` : 
-                    (l.status === 'rejected' ? 
+                    (statusStr === 'REJECTED' ? 
                         `<span class="badge badge-inactive" style="color:var(--accent-rose); border-color:var(--accent-rose);">Rejected</span>` : 
                         `<span class="badge badge-absent">Pending HR Review</span>`);
 
+                const typeName = l.leave_type_name || l.leave_type?.name || l.leave_type || 'Leave';
+                const days = l.number_of_days || l.days_count || 1;
+
                 return `
                     <tr>
-                        <td><strong>${l.leave_type}</strong></td>
-                        <td>${l.start_date} &rarr; ${l.end_date} (${l.days_count} d)</td>
+                        <td><strong>${typeName}</strong></td>
+                        <td>${l.start_date} &rarr; ${l.end_date} (${days} d)</td>
                         <td style="font-size:12.5px; color:var(--text-muted);">${l.reason || 'No note'}</td>
                         <td>${statusBadge}</td>
                     </tr>
@@ -156,16 +206,27 @@ class LeaveModalComponent {
 
     static async submitLeave(event) {
         event.preventDefault();
-        const user = App.currentUser;
-        const empId = user?.employee_id || 1;
+
+        const leaveTypeIdVal = document.getElementById('leave_type_id')?.value;
+        const startDateVal = document.getElementById('start_date')?.value;
+        const endDateVal = document.getElementById('end_date')?.value;
+        const reasonVal = document.getElementById('leave_reason')?.value?.trim() || '';
+
+        if (!leaveTypeIdVal) {
+            Toast.error('Validation Error', 'Please select a leave type.');
+            return;
+        }
+
+        if (new Date(endDateVal) < new Date(startDateVal)) {
+            Toast.error('Invalid Date Range', 'End Date cannot be earlier than Start Date.');
+            return;
+        }
 
         const payload = {
-            employee_id: empId,
-            leave_type: document.getElementById('leave_type')?.value,
-            days_count: parseFloat(document.getElementById('days_count')?.value || 1),
-            start_date: document.getElementById('start_date')?.value,
-            end_date: document.getElementById('end_date')?.value,
-            reason: document.getElementById('leave_reason')?.value || ''
+            leave_type_id: parseInt(leaveTypeIdVal, 10),
+            start_date: startDateVal,
+            end_date: endDateVal,
+            reason: reasonVal || null
         };
 
         const submitBtn = document.getElementById('leave-submit-btn');
@@ -177,7 +238,10 @@ class LeaveModalComponent {
         try {
             await ApiService.applyLeave(payload);
             Toast.success('Leave Submitted', 'Your leave request has been submitted to HR for approval.');
-            this.switchTab('leave-history-pane', document.querySelectorAll('#leave-tabs-header .tab-btn')[1]);
+            
+            // Switch to history tab and refresh
+            const historyTabBtn = document.querySelectorAll('#leave-tabs-header .tab-btn')[1];
+            this.switchTab('leave-history-pane', historyTabBtn);
         } catch (err) {
             Toast.error('Submission Failed', err.message);
             if (submitBtn) {
@@ -225,19 +289,24 @@ class LeaveModalComponent {
             }
 
             let rows = leaves.map(l => {
-                const isPending = l.status === 'pending';
-                const statusBadge = l.status === 'approved' ? 
+                const statusStr = String(l.status || 'PENDING').toUpperCase();
+                const isPending = statusStr === 'PENDING';
+                const statusBadge = statusStr === 'APPROVED' ? 
                     `<span class="badge badge-present">Approved</span>` : 
-                    (l.status === 'rejected' ? 
+                    (statusStr === 'REJECTED' ? 
                         `<span class="badge badge-inactive" style="color:var(--accent-rose);">Rejected</span>` : 
                         `<span class="badge badge-absent">Pending</span>`);
 
                 const actions = isPending ? `
                     <div style="display:flex; gap:6px;">
-                        <button class="btn btn-primary btn-sm" onclick="LeaveModalComponent.reviewLeave(${l.id}, 'approved')">Approve</button>
-                        <button class="btn btn-outline-danger btn-sm" onclick="LeaveModalComponent.reviewLeave(${l.id}, 'rejected')">Reject</button>
+                        <button class="btn btn-primary btn-sm" onclick="LeaveModalComponent.reviewLeave(${l.id}, 'APPROVED')">Approve</button>
+                        <button class="btn btn-outline-danger btn-sm" onclick="LeaveModalComponent.reviewLeave(${l.id}, 'REJECTED')">Reject</button>
                     </div>
                 ` : `<span style="font-size:12px; color:var(--text-subtle);">Reviewed by ${l.reviewed_by || 'HR'}</span>`;
+
+                const empName = l.employee_name || l.full_name || 'Employee';
+                const typeName = l.leave_type_name || l.leave_type?.name || l.leave_type || 'Leave';
+                const days = l.number_of_days || l.days_count || 1;
 
                 return `
                     <tr>
@@ -245,13 +314,13 @@ class LeaveModalComponent {
                             <div style="display:flex; align-items:center; gap:10px;">
                                 <img src="${l.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150'}" alt="" style="width:32px; height:32px; border-radius:var(--radius-full); object-fit:cover;">
                                 <div>
-                                    <div style="font-weight:700; color:var(--text-main); font-size:13.5px;">${l.full_name}</div>
-                                    <div style="font-size:11px; color:var(--primary-400);">${l.department}</div>
+                                    <div style="font-weight:700; color:var(--text-main); font-size:13.5px;">${empName}</div>
+                                    <div style="font-size:11px; color:var(--primary-400);">${l.department || 'General'}</div>
                                 </div>
                             </div>
                         </td>
-                        <td><strong>${l.leave_type}</strong></td>
-                        <td>${l.start_date} &rarr; ${l.end_date} (${l.days_count} d)</td>
+                        <td><strong>${typeName}</strong></td>
+                        <td>${l.start_date} &rarr; ${l.end_date} (${days} d)</td>
                         <td style="font-size:12px; color:var(--text-muted);">${l.reason || 'None'}</td>
                         <td>${statusBadge}</td>
                         <td>${actions}</td>
@@ -286,7 +355,7 @@ class LeaveModalComponent {
     static async reviewLeave(leaveId, newStatus) {
         try {
             await ApiService.reviewLeave(leaveId, newStatus, App.currentUser?.display_name || 'HR Admin');
-            Toast.success('Updated', `Leave request #${leaveId} was ${newStatus}.`);
+            Toast.success('Updated', `Leave request #${leaveId} was marked as ${newStatus}.`);
             await this.loadAllLeavesHR();
         } catch (err) {
             Toast.error('Update Failed', err.message);

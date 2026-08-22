@@ -9,7 +9,8 @@ from backend.app.dependencies.rbac import (
     require_hr_or_admin,
     verify_employee_access,
 )
-from backend.app.models.user import User
+from backend.app.models.user import User, UserRole
+from backend.app.models.employee import Employee
 from backend.app.models.leave import LeaveRequestStatus
 from backend.app.repositories.leave_repo import leave_repo
 from backend.app.services.leave_service import leave_service
@@ -24,6 +25,16 @@ from backend.app.schemas.leave import (
 from backend.app.schemas.common import ApiResponse, PaginatedResponse
 
 router = APIRouter(prefix="/time-off", tags=["Time Off & Leave Management"])
+
+
+def _get_effective_emp_id(db: Session, user: User) -> int:
+    if user.employee_id:
+        return user.employee_id
+    if user.role in [UserRole.ADMIN, UserRole.HR_OFFICER]:
+        first_emp = db.query(Employee).first()
+        if first_emp:
+            return first_emp.id
+    raise BusinessRuleException("User is not linked to an employee profile.")
 
 
 # --- Leave Types ---
@@ -70,13 +81,12 @@ def get_my_leave_balances(
     current_user: User = Depends(get_current_active_user),
 ):
     """Get remaining leave balances for the logged-in employee."""
-    if not current_user.employee_id:
-        raise BusinessRuleException("User is not linked to an employee profile.")
+    emp_id = _get_effective_emp_id(db, current_user)
 
     query_year = year or datetime.now(timezone.utc).year
-    balances = leave_repo.get_all_balances_by_employee(db, current_user.employee_id, query_year)
+    balances = leave_repo.get_all_balances_by_employee(db, emp_id, query_year)
     if not balances:
-        balances = leave_repo.initialize_balances_for_employee(db, current_user.employee_id, query_year)
+        balances = leave_repo.initialize_balances_for_employee(db, emp_id, query_year)
 
     results = []
     for b in balances:
@@ -128,10 +138,9 @@ def apply_time_off(
     current_user: User = Depends(get_current_active_user),
 ):
     """Submit a new time-off / leave application."""
-    if not current_user.employee_id:
-        raise BusinessRuleException("User is not linked to an employee profile.")
+    emp_id = _get_effective_emp_id(db, current_user)
 
-    req = leave_service.apply_for_time_off(db, current_user.employee_id, request_in)
+    req = leave_service.apply_for_time_off(db, emp_id, request_in)
     res = TimeOffRequestRead.model_validate(req)
     res.employee_name = req.employee.full_name if req.employee else None
     res.leave_type_name = req.leave_type.name if req.leave_type else None
@@ -152,12 +161,11 @@ def get_my_time_off_requests(
     current_user: User = Depends(get_current_active_user),
 ):
     """List personal time-off requests."""
-    if not current_user.employee_id:
-        raise BusinessRuleException("User is not linked to an employee profile.")
+    emp_id = _get_effective_emp_id(db, current_user)
 
     skip = (page - 1) * size
     items, total = leave_repo.get_requests(
-        db, employee_id=current_user.employee_id, status=status, skip=skip, limit=size
+        db, employee_id=emp_id, status=status, skip=skip, limit=size
     )
     pages = (total + size - 1) // size
 
@@ -277,10 +285,9 @@ def cancel_time_off_request(
     current_user: User = Depends(get_current_active_user),
 ):
     """Cancel personal time-off request."""
-    if not current_user.employee_id:
-        raise BusinessRuleException("User is not linked to an employee profile.")
+    emp_id = _get_effective_emp_id(db, current_user)
 
-    req = leave_service.cancel_request(db, id, current_user.employee_id)
+    req = leave_service.cancel_request(db, id, emp_id)
     tr = TimeOffRequestRead.model_validate(req)
     tr.employee_name = req.employee.full_name if req.employee else None
     tr.leave_type_name = req.leave_type.name if req.leave_type else None
