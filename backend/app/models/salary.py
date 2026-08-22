@@ -49,18 +49,32 @@ class Salary(Base):
 
     @property
     def total_earnings(self) -> Decimal:
+        def _to_dec(v) -> Decimal:
+            if v is None:
+                return Decimal("0.00")
+            if isinstance(v, Decimal):
+                return v
+            return Decimal(str(v))
+
         return (
-            (self.basic_salary or Decimal(0))
-            + (self.hra or Decimal(0))
-            + (self.standard_allowance or Decimal(0))
-            + (self.performance_bonus or Decimal(0))
-            + (self.leave_travel_allowance or Decimal(0))
-            + (self.fixed_allowance or Decimal(0))
+            _to_dec(self.basic_salary)
+            + _to_dec(self.hra)
+            + _to_dec(self.standard_allowance)
+            + _to_dec(self.performance_bonus)
+            + _to_dec(self.leave_travel_allowance)
+            + _to_dec(self.fixed_allowance)
         )
 
     @property
     def total_deductions(self) -> Decimal:
-        return (self.professional_tax or Decimal(0)) + (self.employee_pf or Decimal(0))
+        def _to_dec(v) -> Decimal:
+            if v is None:
+                return Decimal("0.00")
+            if isinstance(v, Decimal):
+                return v
+            return Decimal(str(v))
+
+        return _to_dec(self.professional_tax) + _to_dec(self.employee_pf)
 
     @property
     def net_salary(self) -> Decimal:
