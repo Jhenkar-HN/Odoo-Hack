@@ -26,6 +26,10 @@ class AuthService:
             employee_id=user.employee_id,
         )
 
+        display_name = user.email.split("@")[0].replace(".", " ").title()
+        if user.employee and user.employee.full_name:
+            display_name = user.employee.full_name
+
         return TokenResponse(
             access_token=token,
             token_type="bearer",
@@ -36,6 +40,9 @@ class AuthService:
             role=user.role,
             employee_id=user.employee_id,
             must_change_password=user.must_change_password,
+            token=token,
+            username=user.login_id,
+            display_name=display_name,
         )
 
     @staticmethod

@@ -58,6 +58,18 @@ def list_employees(
     )
 
 
+@router.get("/departments", response_model=ApiResponse[List[str]])
+def list_departments(db: Session = Depends(get_db)):
+    """Retrieve distinct list of employee departments."""
+    from backend.app.models.employee import Employee
+    depts = [r[0] for r in db.query(Employee.department).distinct().filter(Employee.department != None).all()]
+    return ApiResponse(
+        success=True,
+        message="Departments retrieved successfully",
+        data=sorted(list(set(depts))) if depts else ["Engineering", "HR", "Sales", "Marketing", "Finance", "Product", "Operations"],
+    )
+
+
 @router.post("", response_model=ApiResponse[dict], status_code=status.HTTP_201_CREATED)
 def create_employee(
     employee_in: EmployeeCreate,
