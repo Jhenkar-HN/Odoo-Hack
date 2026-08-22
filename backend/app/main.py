@@ -37,7 +37,8 @@ app.add_middleware(
 # Register centralized exception handlers
 register_exception_handlers(app)
 
-# Include aggregated API v1 routes
+# Include API routes (both /api for frontend SPA client and /api/v1 for versioned APIs)
+app.include_router(api_router, prefix="/api")
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
 
