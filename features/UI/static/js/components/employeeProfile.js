@@ -3,7 +3,8 @@
  */
 class EmployeeProfileComponent {
     static render(emp) {
-        const isHR = App.currentUser?.role === 'hr';
+        const userRole = String(App.currentUser?.role || '').toUpperCase();
+        const isHR = ['ADMIN', 'HR_OFFICER'].includes(userRole);
         const isOwnProfile = App.currentUser?.employee_id === emp.id;
 
         const salary = emp.salary_breakdown || {};
@@ -24,26 +25,32 @@ class EmployeeProfileComponent {
                     <option value="on_leave" ${attStatus === 'on_leave' ? 'selected' : ''}>✈️ Status: On Leave</option>
                 </select>
             </div>
-            <button class="btn btn-secondary" onclick="App.navigate('edit-employee', ${emp.id})">
+            <button class="btn btn-secondary" onclick="App.navigate('payroll', ${emp.id})">
+                📄 Payslip
+            </button>
+            <button class="btn btn-primary" onclick="App.navigate('edit-employee', ${emp.id})">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                 Edit Profile
             </button>
             <button class="btn btn-outline-danger" onclick="App.promptDelete(${emp.id}, '${emp.full_name.replace(/'/g, "\\'")}')">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                 Deactivate
             </button>
         ` : (isOwnProfile ? `
-            <div class="filter-group">
-                <select class="filter-select" onchange="EmployeeProfileComponent.handleAttendanceChange(${emp.id}, this.value)" style="padding:7px 12px; font-size:12.5px;">
-                    <option value="present" ${attStatus === 'present' ? 'selected' : ''}>🟢 Status: Present</option>
-                    <option value="absent" ${attStatus === 'absent' ? 'selected' : ''}>🟡 Status: Absent</option>
-                    <option value="on_leave" ${attStatus === 'on_leave' ? 'selected' : ''}>✈️ Status: On Leave</option>
-                </select>
-            </div>
-            <button class="btn btn-primary" onclick="LeaveModalComponent.openApplyModal()">
-                Apply for Leave
+            <button class="btn btn-secondary" onclick="EmployeeProfileComponent.openEditSelfModal()">
+                ✏️ Edit My Details
             </button>
-        ` : ``);
+            <button class="btn btn-secondary" onclick="App.navigate('payroll', ${emp.id})">
+                📄 View My Payslip
+            </button>
+            <button class="btn btn-primary" onclick="LeaveModalComponent.openApplyModal()">
+                ✈️ Apply for Leave
+            </button>
+        ` : `
+            <button class="btn btn-secondary" onclick="App.navigate('employees')">
+                &larr; Back to Directory
+            </button>
+        `);
+
 
         return `
             <!-- Hero Header -->
@@ -374,6 +381,94 @@ class EmployeeProfileComponent {
             Toast.error('Update Failed', err.message);
         }
     }
+
+    static async openEditSelfModal() {
+        const modal = document.getElementById('generic-modal-overlay');
+        if (!modal) return;
+
+        try {
+            const emp = await ApiService.getMyProfile();
+            modal.innerHTML = `
+                <div class="modal-dialog">
+                    <div class="modal-header">
+                        <h3 class="modal-title">Edit My Personal Details</h3>
+                        <button class="modal-close" onclick="App.closeModal()">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="edit-self-form" onsubmit="EmployeeProfileComponent.saveSelfProfile(event, ${emp.id})">
+                            <div class="form-group">
+                                <label class="form-label" for="self-phone">Contact Phone</label>
+                                <input type="text" id="self-phone" class="form-control" value="${emp.phone || ''}" placeholder="+91 98765 43210">
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label" for="self-personal-email">Personal Email</label>
+                                <input type="email" id="self-personal-email" class="form-control" value="${emp.personal_email || ''}" placeholder="name@personal.com">
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label" for="self-address">Residential Address</label>
+                                <textarea id="self-address" class="form-control" rows="2" placeholder="Full address details">${emp.residing_address || ''}</textarea>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label" for="self-avatar">Profile Picture URL</label>
+                                <input type="url" id="self-avatar" class="form-control" value="${emp.profile_picture || ''}" placeholder="https://...">
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label" for="self-about">About / Bio</label>
+                                <textarea id="self-about" class="form-control" rows="3" placeholder="Brief summary about yourself">${emp.about || ''}</textarea>
+                            </div>
+
+                            <div style="font-size:12px; color:var(--text-subtle); margin-bottom:16px;">
+                                ℹ️ Note: Core employment records (Designation, Department, Salary) can only be adjusted by HR Administrators.
+                            </div>
+
+                            <div style="display:flex; justify-content:flex-end; gap:10px;">
+                                <button type="button" class="btn btn-secondary" onclick="App.closeModal()">Cancel</button>
+                                <button type="submit" class="btn btn-primary" id="save-self-btn">Save Changes</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            `;
+            modal.classList.add('active');
+        } catch (err) {
+            Toast.error('Error', err.message);
+        }
+    }
+
+    static async saveSelfProfile(event, empId) {
+        event.preventDefault();
+        const submitBtn = document.getElementById('save-self-btn');
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = 'Saving...';
+        }
+
+        try {
+            const payload = {
+                phone: document.getElementById('self-phone')?.value.trim(),
+                personal_email: document.getElementById('self-personal-email')?.value.trim(),
+                residing_address: document.getElementById('self-address')?.value.trim(),
+                profile_picture: document.getElementById('self-avatar')?.value.trim(),
+                about: document.getElementById('self-about')?.value.trim()
+            };
+
+            await ApiService.updateMyProfile(payload);
+            Toast.success('Profile Updated', 'Your personal details have been saved successfully.');
+            App.closeModal();
+            App.navigate('profile', empId);
+        } catch (err) {
+            Toast.error('Save Failed', err.message);
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = 'Save Changes';
+            }
+        }
+    }
 }
 
 window.EmployeeProfileComponent = EmployeeProfileComponent;
+

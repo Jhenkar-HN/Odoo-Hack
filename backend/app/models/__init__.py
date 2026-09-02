@@ -15,7 +15,7 @@ from backend.app.models.leave import (
     TimeOffRequest,
     LeaveRequestStatus,
 )
-from backend.app.models.company import CompanySettings
+from backend.app.models.company import Company, CompanySequence, CompanySettings
 
 __all__ = [
     "User",
@@ -33,5 +33,7 @@ __all__ = [
     "LeaveBalance",
     "TimeOffRequest",
     "LeaveRequestStatus",
+    "Company",
+    "CompanySequence",
     "CompanySettings",
 ]

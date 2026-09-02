@@ -47,4 +47,41 @@ class TokenPayload(BaseModel):
 
 class PasswordChangeRequest(BaseModel):
     old_password: str = Field(..., min_length=1)
-    new_password: str = Field(..., min_length=6, description="New password with minimum 6 characters")
+    new_password: str = Field(..., min_length=8, description="New password with minimum 8 characters")
+
+
+class SignUpRequest(BaseModel):
+    employee_id: str = Field(..., min_length=2, max_length=50, description="Company Employee ID / Code")
+    email: str = Field(..., min_length=5, max_length=255, description="Corporate or Work Email")
+    password: str = Field(..., min_length=8, max_length=128, description="Password meeting security rules")
+    role: UserRole = Field(default=UserRole.EMPLOYEE, description="Requested Role: EMPLOYEE or HR_OFFICER")
+    full_name: Optional[str] = Field(None, max_length=150, description="Full Name of user")
+    verification_code: Optional[str] = Field(None, max_length=10, description="Email verification code")
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_role(cls, data: Any) -> Any:
+        if isinstance(data, dict) and "role" in data:
+            val = str(data["role"]).upper().strip()
+            if val in ["HR", "HR_ADMIN", "ADMIN"]:
+                data["role"] = UserRole.HR_OFFICER.value
+            elif val in ["EMPLOYEE", "EMP"]:
+                data["role"] = UserRole.EMPLOYEE.value
+        return data
+
+    @model_validator(mode="after")
+    def validate_password_rules(self) -> "SignUpRequest":
+        pwd = self.password
+        if len(pwd) < 8:
+            raise ValueError("Password must be at least 8 characters long.")
+        has_letter = any(c.isalpha() for c in pwd)
+        has_digit = any(c.isdigit() for c in pwd)
+        if not (has_letter and has_digit):
+            raise ValueError("Password must contain both letters and digits for security compliance.")
+        return self
+
+
+class EmailVerificationRequest(BaseModel):
+    email: str = Field(..., min_length=5, max_length=255)
+    code: Optional[str] = Field(None, max_length=10)
+

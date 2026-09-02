@@ -48,11 +48,24 @@ def list_employees(
     )
     pages = (total + size - 1) // size
 
+    emp_ids = [e.id for e in items]
+    status_map = employee_service.compute_employees_statuses(db, emp_ids)
+
+    employee_reads = []
+    for e in items:
+        st = status_map.get(e.id, "absent")
+        read_obj = EmployeeRead.model_validate(e)
+        read_obj.status = st
+        read_obj.attendance_status = st
+        read_obj.full_name = e.full_name
+        read_obj.work_email = e.email
+        employee_reads.append(read_obj)
+
     return ApiResponse(
         success=True,
         message="Employees retrieved successfully",
         data=PaginatedResponse(
-            items=[EmployeeRead.model_validate(e) for e in items],
+            items=employee_reads,
             total=total,
             page=page,
             size=size,
@@ -123,13 +136,9 @@ def get_employee(
     employee_data["full_name"] = emp.full_name
     employee_data["work_email"] = emp.email
 
-    today_attendance = db.query(Attendance).filter(
-        Attendance.employee_id == id,
-        Attendance.attendance_date == date.today(),
-    ).first()
-    employee_data["attendance_status"] = (
-        today_attendance.status.value.lower() if today_attendance else "absent"
-    )
+    computed_status = employee_service.compute_employee_status(db, id)
+    employee_data["status"] = computed_status
+    employee_data["attendance_status"] = computed_status
 
     # Salary data is confidential: expose it only to HR/Admin or the employee themself.
     if current_user.role in (UserRole.ADMIN, UserRole.HR_OFFICER) or current_user.employee_id == id:

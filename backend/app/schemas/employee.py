@@ -196,6 +196,7 @@ class EmployeeRead(EmployeeBase):
     employee_code: str
     full_name: Optional[str] = None
     work_email: Optional[EmailStr] = None
+    status: Optional[str] = "absent"
     attendance_status: Optional[str] = None
     salary_breakdown: Optional[dict] = None
     created_at: datetime

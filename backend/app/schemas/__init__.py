@@ -45,6 +45,9 @@ from backend.app.schemas.leave import (
     TimeOffReviewRequest,
 )
 from backend.app.schemas.company import (
+    CompanyCreate,
+    CompanyRead,
+    SerialNumberLookup,
     CompanySettingsRead,
     CompanySettingsUpdate,
 )
@@ -85,6 +88,9 @@ __all__ = [
     "TimeOffRequestCreate",
     "TimeOffRequestRead",
     "TimeOffReviewRequest",
+    "CompanyCreate",
+    "CompanyRead",
+    "SerialNumberLookup",
     "CompanySettingsRead",
     "CompanySettingsUpdate",
 ]

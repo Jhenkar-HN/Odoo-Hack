@@ -26,8 +26,8 @@ def test_create_employee_with_auto_login_id(client: TestClient, admin_token: str
     data = res.json()
     assert data["success"] is True
     assert "data" in data
-    # Login ID format: OI + RO + MI + 2026 + 001 = OIROMI2026001
-    assert data["data"]["login_id"] == "OIROMI2026001"
+    # Login ID format: CE + RO + MI + 2026 + 0001 = CEROMI20260001
+    assert data["data"]["login_id"] == "CEROMI20260001"
     assert "temporary_password" in data["data"]
     assert data["data"]["employee"]["first_name"] == "Robert"
 
