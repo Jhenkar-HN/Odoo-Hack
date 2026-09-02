@@ -251,16 +251,20 @@
     height: 14px;
     border-radius: var(--radius-full);
     border: 2px solid var(--bg-card);
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 .card-attendance-dot.present {
-    background: var(--accent-emerald);
-}
-.card-attendance-dot.absent {
-    background: var(--accent-amber);
+    background: #10b981; /* Green */
+    box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
 }
 .card-attendance-dot.on_leave {
-    background: var(--accent-sky);
+    background: #f97316; /* Orange */
+    box-shadow: 0 0 8px rgba(249, 115, 22, 0.6);
+}
+.card-attendance-dot.absent {
+    background: #eab308; /* Yellow */
+    box-shadow: 0 0 8px rgba(234, 179, 8, 0.6);
 }
 
 .card-info {

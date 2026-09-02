@@ -3,7 +3,8 @@
  */
 class EmployeeTableComponent {
     static render(employees) {
-        const isHR = App.currentUser?.role === 'hr';
+        const userRole = String(App.currentUser?.role || '').toUpperCase();
+        const isHR = ['ADMIN', 'HR_OFFICER'].includes(userRole);
 
         if (!employees || employees.length === 0) {
             return `
@@ -19,12 +20,12 @@ class EmployeeTableComponent {
         }
 
         let rowsHtml = employees.map(emp => {
-            const attStatus = emp.attendance_status || 'present';
+            const attStatus = (emp.status || emp.attendance_status || 'absent').toLowerCase();
             const attBadge = attStatus === 'present' ? 
-                `<span class="badge badge-present"><span class="badge-dot"></span>Present</span>` : 
+                `<span class="badge badge-present"><span class="badge-dot" style="background:#10b981;"></span>Present</span>` : 
                 (attStatus === 'on_leave' ? 
-                    `<span class="badge badge-leave"><span class="badge-dot"></span>On Leave</span>` : 
-                    `<span class="badge badge-absent"><span class="badge-dot"></span>Absent</span>`);
+                    `<span class="badge badge-leave" style="color:#f97316; border-color:rgba(249,115,22,0.3); background:rgba(249,115,22,0.1);"><span class="badge-dot" style="background:#f97316;"></span>On Leave</span>` : 
+                    `<span class="badge badge-absent" style="color:#eab308; border-color:rgba(234,179,8,0.3); background:rgba(234,179,8,0.1);"><span class="badge-dot" style="background:#eab308;"></span>Absent</span>`);
 
             const avatar = emp.avatar_url || `https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80`;
             const wageStr = isHR || App.currentUser?.employee_id === emp.id ? (emp.monthly_wage ? `₹${Number(emp.monthly_wage).toLocaleString('en-IN')}` : '₹0') : 'Confidential';

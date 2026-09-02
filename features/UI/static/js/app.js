@@ -21,6 +21,7 @@ class HRMSApp {
         };
 
         this.searchDebounceTimer = null;
+        this.statusPollingInterval = null;
     }
 
     init() {
@@ -45,6 +46,9 @@ class HRMSApp {
         // Parse initial URL hash or route
         window.addEventListener('hashchange', () => this.handleHashChange());
         this.handleHashChange();
+
+        // Start real-time background status polling (every 20 seconds)
+        this.startStatusPolling();
     }
 
     setSession(user) {
@@ -73,6 +77,7 @@ class HRMSApp {
     }
 
     logout() {
+        this.stopStatusPolling();
         this.currentUser = null;
         localStorage.removeItem('hrms_user');
         Toast.info('Signed Out', 'You have been logged out of your session.');
@@ -135,13 +140,16 @@ class HRMSApp {
         SidebarComponent.render(view);
 
         const titles = {
-            'dashboard': 'Executive Dashboard',
+            'dashboard': isHR ? 'Admin & HR Dashboard' : 'Employee Dashboard',
+            'attendance': 'Attendance Management',
+            'leaves': isHR ? 'Leave Approvals' : 'Time-Off & Leaves',
+            'payroll': 'Payroll & Salary Slips',
             'employees': isHR ? 'Employee Directory' : 'Team Directory',
             'add-employee': 'Onboard Employee',
             'edit-employee': 'Edit Employee Record',
             'profile': 'Employee Profile'
         };
-        HeaderComponent.render(titles[view] || 'HRMS', view);
+        HeaderComponent.render(titles[view] || 'Dayflow HRMS', view);
 
         const container = document.getElementById('view-container');
         if (!container) return;
@@ -151,8 +159,17 @@ class HRMSApp {
                 if (isHR) {
                     await StatsViewComponent.render();
                 } else {
-                    this.navigate('profile', this.currentUser.employee_id || 1);
+                    await EmployeeDashboardComponent.render();
                 }
+                break;
+            case 'attendance':
+                await AttendanceViewComponent.render();
+                break;
+            case 'leaves':
+                await LeaveModalComponent.renderPageView();
+                break;
+            case 'payroll':
+                await PayrollViewComponent.render(param);
                 break;
             case 'employees':
                 await this.renderEmployeeDirectory();
@@ -171,7 +188,7 @@ class HRMSApp {
                 if (isHR) {
                     await StatsViewComponent.render();
                 } else {
-                    await this.renderProfileView(this.currentUser.employee_id || 1);
+                    await EmployeeDashboardComponent.render();
                 }
                 break;
         }
@@ -301,6 +318,74 @@ class HRMSApp {
         } catch (err) {
             Toast.error('Load Failed', err.message);
             area.innerHTML = `<div class="empty-state"><div class="empty-state-title">Error loading employees</div><div class="empty-state-text">${err.message}</div></div>`;
+        }
+    }
+
+    startStatusPolling() {
+        this.stopStatusPolling();
+        // Polling interval between 15-30s (20s)
+        this.statusPollingInterval = setInterval(() => {
+            if (this.currentUser && this.state.currentView === 'employees') {
+                this.refreshEmployeeStatusesSilent();
+            } else if (this.currentUser && this.state.currentView === 'dashboard') {
+                if (typeof StatsViewComponent !== 'undefined' && StatsViewComponent.render) {
+                    // Refresh dashboard stats silently if available
+                }
+            }
+        }, 20000);
+    }
+
+    stopStatusPolling() {
+        if (this.statusPollingInterval) {
+            clearInterval(this.statusPollingInterval);
+            this.statusPollingInterval = null;
+        }
+    }
+
+    async refreshEmployeeStatusesSilent() {
+        if (!this.currentUser) return;
+        try {
+            const res = await ApiService.getEmployees({
+                search: this.state.searchQuery,
+                department: this.state.filterDept,
+                status: this.state.filterStatus,
+                attendance_status: this.state.filterAttendance,
+                sort_by: this.state.sortBy,
+                sort_order: this.state.sortOrder,
+                page: this.state.page,
+                limit: this.state.limit
+            });
+
+            this.state.employees = res.items || [];
+            this.state.totalEmployees = res.total || 0;
+
+            // Live in-place DOM update without full page reload or scroll disruption
+            this.state.employees.forEach(emp => {
+                const attStatus = (emp.status || emp.attendance_status || 'absent').toLowerCase();
+                const isPresent = attStatus === 'present';
+                const isOnLeave = attStatus === 'on_leave';
+
+                const badgeHtml = isPresent ? 
+                    `<span class="badge badge-present"><span class="badge-dot" style="background:#10b981;"></span>Present</span>` : 
+                    (isOnLeave ? 
+                        `<span class="badge badge-leave" style="color:#f97316; border-color:rgba(249,115,22,0.3); background:rgba(249,115,22,0.1);"><span class="badge-dot" style="background:#f97316;"></span>On Leave</span>` : 
+                        `<span class="badge badge-absent" style="color:#eab308; border-color:rgba(234,179,8,0.3); background:rgba(234,179,8,0.1);"><span class="badge-dot" style="background:#eab308;"></span>Absent</span>`);
+
+                const card = document.getElementById(`emp-card-${emp.id}`);
+                if (card) {
+                    const dot = card.querySelector('.card-attendance-dot');
+                    if (dot) {
+                        dot.className = `card-attendance-dot ${attStatus}`;
+                        dot.title = `Status: ${attStatus}`;
+                    }
+                    const indicator = card.querySelector('.card-status-indicator');
+                    if (indicator) {
+                        indicator.innerHTML = badgeHtml;
+                    }
+                }
+            });
+        } catch (e) {
+            // Background polling error is non-blocking
         }
     }
 
@@ -475,10 +560,80 @@ class HRMSApp {
             Toast.info('Time Off', 'Leave request recorded in system.');
         }
 
+        // Real-time status update without full page reload
+        this.refreshEmployeeStatusesSilent();
+
         if (this.state.currentView === 'dashboard') {
             StatsViewComponent.render();
         } else if (this.state.currentView === 'profile') {
             this.renderProfileView(user?.employee_id || 1);
+        } else if (this.state.currentView === 'employees') {
+            this.fetchAndRenderEmployees();
+        }
+    }
+
+    openPasswordModal() {
+        const modal = document.getElementById('generic-modal-overlay');
+        if (!modal) return;
+
+        modal.innerHTML = `
+            <div class="modal-dialog">
+                <div class="modal-header">
+                    <h3 class="modal-title">Change Account Password</h3>
+                    <button class="modal-close" onclick="App.closeModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <form id="change-password-form" onsubmit="App.handlePasswordChange(event)">
+                        <div class="form-group">
+                            <label class="form-label required" for="old-pwd">Current Password</label>
+                            <input type="password" id="old-pwd" class="form-control" required placeholder="Enter current password">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label required" for="new-pwd">New Password</label>
+                            <input type="password" id="new-pwd" class="form-control" minlength="8" required placeholder="Min. 8 characters (letters & digits)">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label required" for="confirm-new-pwd">Confirm New Password</label>
+                            <input type="password" id="confirm-new-pwd" class="form-control" minlength="8" required placeholder="Confirm new password">
+                        </div>
+                        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+                            <button type="button" class="btn btn-secondary" onclick="App.closeModal()">Cancel</button>
+                            <button type="submit" class="btn btn-primary" id="change-pwd-btn">Update Password</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+        modal.classList.add('active');
+    }
+
+    async handlePasswordChange(event) {
+        event.preventDefault();
+        const oldPassword = document.getElementById('old-pwd')?.value;
+        const newPassword = document.getElementById('new-pwd')?.value;
+        const confirmPassword = document.getElementById('confirm-new-pwd')?.value;
+
+        if (newPassword !== confirmPassword) {
+            Toast.error('Validation Error', 'New passwords do not match.');
+            return;
+        }
+
+        const btn = document.getElementById('change-pwd-btn');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerText = 'Updating...';
+        }
+
+        try {
+            await ApiService.changePassword(oldPassword, newPassword);
+            Toast.success('Password Changed', 'Your password has been updated securely.');
+            this.closeModal();
+        } catch (err) {
+            Toast.error('Change Failed', err.message);
+            if (btn) {
+                btn.disabled = false;
+                btn.innerText = 'Update Password';
+            }
         }
     }
 
@@ -487,6 +642,7 @@ class HRMSApp {
         if (modal) modal.classList.remove('active');
     }
 }
+
 
 window.App = new HRMSApp();
 window.addEventListener('DOMContentLoaded', () => window.App.init());

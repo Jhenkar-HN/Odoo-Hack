@@ -1,7 +1,7 @@
 import secrets
 import string
-from datetime import datetime, timezone
-from typing import Optional, List, Tuple
+from datetime import date, datetime, timezone
+from typing import Optional, List, Tuple, Dict
 from sqlalchemy.orm import Session
 from backend.app.core.security import get_password_hash
 from backend.app.core.exceptions import (
@@ -15,6 +15,8 @@ from backend.app.models.employee import (
     EmployeePrivateInfo,
     Certification,
 )
+from backend.app.models.attendance import Attendance
+from backend.app.models.leave import TimeOffRequest, LeaveRequestStatus
 from backend.app.repositories.employee_repo import employee_repo
 from backend.app.repositories.user_repo import user_repo
 from backend.app.repositories.leave_repo import leave_repo
@@ -296,6 +298,97 @@ class EmployeeService:
     @staticmethod
     def delete_certification(db: Session, cert_id: int) -> bool:
         return employee_repo.delete_certification(db, cert_id)
+
+    # Real-Time Computed Status
+    @staticmethod
+    def compute_employee_status(
+        db: Session, employee_id: int, target_date: Optional[date] = None
+    ) -> str:
+        """
+        Compute real-time employee status dynamically from attendance and leave tables:
+        - present: employee has an active check-in (no check-out yet) or completed check-in today
+        - on_leave: an approved leave_request exists covering today's date
+        - absent: none of the above
+        """
+        check_date = target_date or date.today()
+
+        # 1. Check if employee has checked in today (active or completed)
+        today_attendance = (
+            db.query(Attendance)
+            .filter(
+                Attendance.employee_id == employee_id,
+                Attendance.attendance_date == check_date,
+                Attendance.check_in.isnot(None),
+            )
+            .first()
+        )
+        if today_attendance:
+            return "present"
+
+        # 2. Check if an approved leave request covers today's date
+        active_leave = (
+            db.query(TimeOffRequest)
+            .filter(
+                TimeOffRequest.employee_id == employee_id,
+                TimeOffRequest.status == LeaveRequestStatus.APPROVED,
+                TimeOffRequest.start_date <= check_date,
+                TimeOffRequest.end_date >= check_date,
+            )
+            .first()
+        )
+        if active_leave:
+            return "on_leave"
+
+        # 3. Default state
+        return "absent"
+
+    @staticmethod
+    def compute_employees_statuses(
+        db: Session, employee_ids: List[int], target_date: Optional[date] = None
+    ) -> Dict[int, str]:
+        """
+        Batch compute status for a list of employee IDs in 2 queries (avoiding N+1).
+        """
+        if not employee_ids:
+            return {}
+
+        check_date = target_date or date.today()
+        statuses: Dict[int, str] = {emp_id: "absent" for emp_id in employee_ids}
+
+        # Query all attendances for these employees today with a check_in
+        attendances = (
+            db.query(Attendance.employee_id)
+            .filter(
+                Attendance.employee_id.in_(employee_ids),
+                Attendance.attendance_date == check_date,
+                Attendance.check_in.isnot(None),
+            )
+            .all()
+        )
+        present_emp_ids = {a[0] for a in attendances}
+
+        # Query all approved leave requests covering today
+        leaves = (
+            db.query(TimeOffRequest.employee_id)
+            .filter(
+                TimeOffRequest.employee_id.in_(employee_ids),
+                TimeOffRequest.status == LeaveRequestStatus.APPROVED,
+                TimeOffRequest.start_date <= check_date,
+                TimeOffRequest.end_date >= check_date,
+            )
+            .all()
+        )
+        leave_emp_ids = {l[0] for l in leaves}
+
+        for emp_id in employee_ids:
+            if emp_id in present_emp_ids:
+                statuses[emp_id] = "present"
+            elif emp_id in leave_emp_ids:
+                statuses[emp_id] = "on_leave"
+            else:
+                statuses[emp_id] = "absent"
+
+        return statuses
 
 
 employee_service = EmployeeService()

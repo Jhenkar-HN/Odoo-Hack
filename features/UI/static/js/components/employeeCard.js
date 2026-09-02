@@ -3,16 +3,16 @@
  */
 class EmployeeCardComponent {
     static render(emp) {
-        const attStatus = emp.attendance_status || 'present';
+        const attStatus = (emp.status || emp.attendance_status || 'absent').toLowerCase();
         const isPresent = attStatus === 'present';
         const isOnLeave = attStatus === 'on_leave';
         const isAbsent = attStatus === 'absent';
 
         const attBadge = isPresent ? 
-            `<span class="badge badge-present"><span class="badge-dot"></span>Present</span>` : 
+            `<span class="badge badge-present"><span class="badge-dot" style="background:#10b981;"></span>Present</span>` : 
             (isOnLeave ? 
-                `<span class="badge badge-leave"><span class="badge-dot"></span>On Leave</span>` : 
-                `<span class="badge badge-absent"><span class="badge-dot"></span>Absent</span>`);
+                `<span class="badge badge-leave" style="color:#f97316; border-color:rgba(249,115,22,0.3); background:rgba(249,115,22,0.1);"><span class="badge-dot" style="background:#f97316;"></span>On Leave</span>` : 
+                `<span class="badge badge-absent" style="color:#eab308; border-color:rgba(234,179,8,0.3); background:rgba(234,179,8,0.1);"><span class="badge-dot" style="background:#eab308;"></span>Absent</span>`);
 
         const avatar = emp.avatar_url || `https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80`;
 
@@ -33,7 +33,7 @@ class EmployeeCardComponent {
                 <div class="card-header">
                     <div class="card-avatar-wrapper">
                         <img src="${avatar}" alt="${emp.full_name}" class="card-avatar">
-                        <span class="card-attendance-dot ${attStatus}"></span>
+                        <span class="card-attendance-dot ${attStatus}" title="Status: ${attStatus}"></span>
                     </div>
                     <div class="card-info">
                         <div class="card-code">${emp.login_id || emp.emp_code}</div>

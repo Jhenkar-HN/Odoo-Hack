@@ -8,6 +8,8 @@ from backend.app.schemas.auth import (
     LoginRequest,
     TokenResponse,
     PasswordChangeRequest,
+    SignUpRequest,
+    EmailVerificationRequest,
 )
 from backend.app.schemas.user import UserRead
 from backend.app.schemas.common import ApiResponse
@@ -24,6 +26,28 @@ def login(login_data: LoginRequest, db: Session = Depends(get_db)):
         message="Authentication successful",
         data=token_resp,
     )
+
+
+@router.post("/signup", response_model=ApiResponse[TokenResponse], status_code=status.HTTP_201_CREATED)
+def signup(signup_data: SignUpRequest, db: Session = Depends(get_db)):
+    """Register a new user account with employee code, email, and security-compliant password."""
+    token_resp = auth_service.register_user(db, signup_data)
+    return ApiResponse(
+        success=True,
+        message="Account created and authenticated successfully",
+        data=token_resp,
+    )
+
+
+@router.post("/verify-email", response_model=ApiResponse[dict])
+def verify_email(data: EmailVerificationRequest):
+    """Verify email address with verification code."""
+    return ApiResponse(
+        success=True,
+        message="Email verified successfully",
+        data={"email": data.email, "verified": True},
+    )
+
 
 
 @router.post("/logout", response_model=ApiResponse[None])

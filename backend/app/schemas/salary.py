@@ -65,3 +65,34 @@ class SalaryBreakdown(BaseModel):
     net_salary: Decimal
     pf_total: Decimal
     effective_from: date
+
+
+class PayslipRead(BaseModel):
+    employee_id: int
+    employee_name: str
+    employee_code: str
+    department: str
+    job_position: str
+    month: int
+    year: int
+    month_name: str
+    total_working_days: int
+    present_days: float
+    payable_days: float
+    unpaid_leaves: float
+    monthly_wage: Decimal
+    basic_salary: Decimal
+    hra: Decimal
+    standard_allowance: Decimal
+    performance_bonus: Decimal
+    leave_travel_allowance: Decimal
+    fixed_allowance: Decimal
+    gross_earnings: Decimal
+    pf_deduction: Decimal
+    professional_tax: Decimal
+    total_deductions: Decimal
+    net_payable: Decimal
+    bank_name: Optional[str] = None
+    bank_account_number: Optional[str] = None
+    pan: Optional[str] = None
+

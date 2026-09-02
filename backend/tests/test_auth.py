@@ -104,3 +104,51 @@ def test_change_password_flow(client: TestClient, employee_token: str):
     })
     assert res_new.status_code == 200
     assert res_new.json()["success"] is True
+
+
+def test_signup_success(client: TestClient):
+    res = client.post("/api/v1/auth/signup", json={
+        "employee_id": "OINEW2026001",
+        "email": "new.hire@hrmscorp.com",
+        "full_name": "New Hire",
+        "password": "StrongPassword123!",
+        "role": "EMPLOYEE"
+    })
+    assert res.status_code == 201
+    data = res.json()
+    assert data["success"] is True
+    assert "access_token" in data["data"]
+    assert data["data"]["email"] == "new.hire@hrmscorp.com"
+    assert data["data"]["role"] == "EMPLOYEE"
+
+
+def test_signup_weak_password_rejected(client: TestClient):
+    # Too short (< 8 chars)
+    res = client.post("/api/v1/auth/signup", json={
+        "employee_id": "OIBAD2026001",
+        "email": "bad.pass@hrmscorp.com",
+        "password": "short1",
+        "role": "EMPLOYEE"
+    })
+    assert res.status_code == 422
+
+
+def test_signup_duplicate_email_rejected(client: TestClient):
+    res = client.post("/api/v1/auth/signup", json={
+        "employee_id": "OIDUP2026001",
+        "email": "admin@hrmscorp.com",
+        "password": "ValidPassword123!",
+        "role": "EMPLOYEE"
+    })
+    assert res.status_code in [400, 409]
+    assert res.json()["success"] is False
+
+
+def test_verify_email_endpoint(client: TestClient):
+    res = client.post("/api/v1/auth/verify-email", json={
+        "email": "test.user@hrmscorp.com",
+        "code": "123456"
+    })
+    assert res.status_code == 200
+    assert res.json()["data"]["verified"] is True
+

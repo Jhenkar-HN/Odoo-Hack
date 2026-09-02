@@ -68,3 +68,20 @@ def test_employee_cannot_modify_salary(client: TestClient, employee_token: str, 
         json={"monthly_wage": "15000.00"}
     )
     assert res.status_code == 403
+
+
+def test_employee_payslip_generation(client: TestClient, employee_token: str, db_session: Session):
+    emp = db_session.query(Employee).filter(Employee.email == "john.doe@hrmscorp.com").first()
+
+    res = client.get(
+        f"/api/v1/salaries/employee/{emp.id}/payslip",
+        headers={"Authorization": f"Bearer {employee_token}"}
+    )
+    assert res.status_code == 200
+    data = res.json()["data"]
+    assert data["employee_id"] == emp.id
+    assert data["employee_name"] == emp.full_name
+    assert float(data["payable_days"]) > 0
+    assert float(data["net_payable"]) > 0
+    assert "HDFC Bank" in data["bank_name"] or len(data["bank_name"]) > 0
+
